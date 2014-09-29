@@ -11,16 +11,20 @@
 /*
 TODO:
 
-Method for determining equilibrium condition for metropolis monte carlo: first attempt is running average of 50% of moves accepted
-
+Method for determining equilibrium condition for metropolis monte carlo: energy stabilizes within some tolerance
 Method for saving sphere data for individual spheres
 Method for reading data from a string and applying it to sphere pointers
-
-
+Method for calculating energy of whole spherebox, maybe by storing energy in each individual sphere?
+Method for creating a sphere box with uniformly distributed spheres
+Fix constructor for spherebox
 */
 
 
 using namespace std;
+
+// Global variables of doom
+mt19937 gen;
+double gMax = gen.max();
 
 /*
 Classes:
@@ -34,202 +38,6 @@ Extensions:
     PatchyTwoSphere: A patchy sphere that only interacts with others of its type
 */
 
-// The main functions of this program are:
-// 1. Create a box of spheres
-// 2. Use a box of spheres to perform a Widom insertion method simulation. (WIP)
-
-// Make a list of spheres, save to file.
-void makeSphereList(){
-    // Input parameters
-    cout << "\nInput the number of spheres:\n";
-    int numSpheres;
-    cin >> numSpheres;
-    cout << "\nInput the sphere radius\n";
-    double inputRadius;
-    cin >> inputRadius;
-    cout << "\nInput the side length for the box\n";
-    double boxSize;
-    cin >> boxSize;
-
-    // Reject impossible cases
-    double mpf = (2*(inputRadius)*numSpheres)/boxSize;
-    if(mpf >= 1)
-    {
-        cout << "\nPacking fraction too high for this sort of simulation";
-        return;
-    }
-
-    /* Create a list of pointers to spheres (currently hard spheres, could be adapted to new types)
-    vector<Sphere*> sphereList;
-    for (int sphereAdd = 0; sphereAdd < numSpheres; sphereAdd++)
-    {
-        sphereList.push_back(new Sphere(inputRadius));
-    }
-    // Call constructor with input parameters, which automatically fills box.
-    SphereBox boxOfSpheres (sphereList,boxSize,boxSize,boxSize);
-    */
-
-    // Make a header
-    cout << "Enter the type of sphere to create:\n";
-    // Just make a list
-
-    // Output the data to an input file
-    string str;
-    cout << "Enter a filename to write the sphere data to:\n";
-    cin >> str;
-    // Try to write to file
-    try
-    {
-        boxOfSpheres.printSpheres(str);
-        cout << "File written.\n";
-    }
-    // If that fails for whatever reason, print the box to screen.
-    catch(int e)
-    {
-        boxOfSpheres.printSpheres();
-        cout << "File write failed, output printed to screen.\n";
-    }
-}
-//Read in spheres from a saved file
-SphereBox readBox(string fname)
-{
-    //Set up a file stream
-    try
-    {
-
-    }
-    catch(exception e)
-    {
-        cout << "\nBad file name.";
-    }
-
-    // Read in header type
-    header << getline(fname);
-    // Case statement to identify the type of sphere
-    switch{};
-
-    //for each line of the file stream, read in
-}
-
-//Read in a list of spheres, and then perturb them
-void metroMonteCarlo()
-{
-    // Construct a sphere box from a pre-made file
-    SphereBox box;
-    Sphere * pert;
-    Sphere * placeHold;
-    bool equilibrium;
-    mt19937 gen;
-    string fname;
-    double oldEnergy,newEnergy,energyRatio,rfactor,pertFactor,gMax;
-
-    // Read in sphere data from file
-    cout << "\nEnter the file name where the sphere data is saved.\n";
-    cin >> fname;
-    box = readBox(fname);
-
-    // Calculate mean free path for Metropolis Monte Carlo
-    pertFactor = box.getMeanFreePath();
-    // Set up RNG
-    gen.seed(time(NULL));
-    gMax = gen.max();
-
-    // Allow the box to come to equilibrium using boltzmann interaction
-    while(!equilibrium)
-    {
-        // Select a sphere from the box at random
-        pert = box.getRandomSphere();
-        // Get energy of the sphere
-        oldEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
-        // Save a copy of the sphere
-        *placeHold = *pert;
-        // Perturb the sphere
-        pert->perturb(pertFactor);
-        // Calculate the new energy
-        newEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
-        // Compare the two boltzmann factors
-        energyRatio = exp(-1*newEnergy)/exp(-1*oldEnergy);
-        // If new energy is unfavored, only keeps by random chance
-        if(energyRatio < 1)
-        {
-            //generate a low resolution random number between 0 and 1
-            rfactor = gen()/gMax;
-            // if that number is higher than the energy ratio, reject the change
-            if(rfactor > energyRatio)
-            {
-                // If failed, overwrite with old energy again
-                *pert = *placeHold;
-            }
-        }
-    }
-
-    // Ask if new box should be written to file
-    char input;
-    cout << "Save box to file? (Y/N)";
-    cin >> input;
-    if (input == 'y')
-    {
-        cout << "Enter File to save new data to";
-    }
-
-}
-
-// Read in a list of pre-made spheres, set the type of sphere, perform a simulation
-void widomPotential()
-{
-    double temp;
-    double eTot,eAvg, eTest;
-    double chemPot;
-    // Request the filename where the sphere data is written
-    string name;
-    cout << "\nEnter the name of the file where the data is saved:\n";
-    cin >> name;
-    SphereBox box;
-    box.setSphereData(name);
-    // Inquire about simulation details (i.e. number of spheres to test with)
-    int numTests;
-    cout << "\nEnter the number of spheres to test with.\n";
-    cin >> numTests;
-    // Perform simulation
-    eTot = 0;
-    for(int num = 0; num < numTests; num++)
-    {
-        eTest = box.addTestSphere(new Sphere());
-        eTot += exp(-1*eTest/temp);
-    }
-    eAvg = eTot/numTests;
-    chemPot = -temp*log(eAvg);
-    cout << "\nThe Chemical Potential of the input box is approximated to be:" << chemPot << "\n";
-
-}
-
-int main()
-{
-    bool done = false;
-    while(!done)
-    {
-        cout << "\nInput a number to perform a task:\n(1):Make a box of spheres.\n(2):Perform a metropolis Monte-Carlo simulation.\n(3):Perform Widom insertion method.\n(0):Quit\n";
-        int input;
-        cin >> input;
-        switch (input)
-        {
-            case 1: makeSphereList();
-            break;
-            /*
-            case 2: metroMonteCarlo();
-            break;
-            case 3: widomPotential();
-            break;
-            */
-            case 0: done = true;
-            break;
-            default: cout << "\nBad input.";
-            break;
-        }
-    }
-    return 0;
-}
-
 // Class definition for Sphere
 // Spheres are defined with a location and radius
 // Non-Default Constructor defines radius, location.
@@ -240,7 +48,6 @@ class Sphere
 protected:
     double radius;
     vector<double> location;
-    mt19937 gen;
     /*
     Methods defined for sphere:
         getRadius: returns radius
@@ -258,6 +65,7 @@ public:
     Sphere ();
     Sphere (double);
     Sphere (double, vector<double>);
+	Sphere (string);
     double getRadius();
     void setRadius(double);
     void setLoc(vector<double>);
@@ -287,6 +95,12 @@ Sphere::Sphere(double rad, vector<double> newLoc)
 {
     radius = rad;
     location = newLoc;
+}
+
+// Constructor from string (use read data)
+Sphere::Sphere(string line)
+{
+	readData(line);
 }
 
 // Set the radius of a sphere (not to be overloaded)
@@ -363,12 +177,12 @@ void Sphere::perturb(double mag)
     double u,v,phi,theta,ranJump;
     vector<double> dir;
     // pick a random amount from 0 to mag
-    ranJump = gen()*mag/(gen.max());
+    ranJump = gen()*mag/(gMax);
 
     // pick a random direction (uniform distribution)
         // two random numbers u and v between 0 and 1;
-        u = gen()/(gen.max());
-        v = gen()/(gen.max());
+        u = gen()/(gMax);
+        v = gen()/(gMax);
         // some stuff i pulled from wolfram mathworld
         phi = 8*atan(1)*u;
         theta = acos(2*v-1);
@@ -431,7 +245,6 @@ class SphereBox
     vector<double> bounds;
     vector<Sphere*> box;
     int numPlaced;
-    mt19937 gen;
 /*
     Methods:
     fillBox: fills the box with spheres, insures no overlap
@@ -442,6 +255,9 @@ class SphereBox
     getRandomCoords: returns a random location within the box
     getRandomSpheres: selects a random sphere
     setSphereData: Read info from a file to fill box
+	askEquil: determines if the box is at equilibrium
+	calcTotalEnergy: calculate total energy of the box
+	getTotalEnergy: return total energy of the box
 */
 public:
     // Memory retrieve
@@ -454,6 +270,8 @@ public:
     vector<Sphere *> getNearSpheres(Sphere*, double);
     double getEnergySpheres(Sphere*, vector<Sphere*>);
     double addTestSphere(Sphere * s);
+	bool askEquil();
+	void calcTotalEnergy();
 
 
     // File I/O
@@ -494,7 +312,6 @@ SphereBox::SphereBox (vector<Sphere*> s, double xMax, double yMax, double zMax)
     bounds[0] = xMax;
     bounds[1] = yMax;
     bounds[2] = zMax;
-    gen.seed(time(NULL));
 
     // Determine whether the number of requested spheres can actually fit in the box
     Sphere * testSphere = *(box.begin());
@@ -525,7 +342,6 @@ SphereBox::SphereBox (vector<Sphere*> s, double xMax, double yMax, double zMax)
 vector<double> SphereBox::getRandomCoords()
 {
     vector<double> coords;
-    double gMax = (double) gen.max();
     coords= {((double) gen()/ gMax)*bounds[0],((double) gen()/ gMax)*bounds[1],((double) gen()/ gMax)*bounds[2]};
     return coords;
 };
@@ -587,6 +403,12 @@ double SphereBox::getMeanFreePath()
     double numDens =sphereNum/(bounds[0]*bounds[1]*bounds[2]);
     double rad = (getRandomSphere())->getRadius();
     return numDens*(4*atan(1)*pow(rad,2));
+}
+
+// Determine if sphere box is at equilibrium
+bool SphereBox::askEquil()
+{
+	return 0;
 }
 
 
@@ -800,4 +622,212 @@ double WellSphere::getPotential(Sphere* s, vector<double> bounds)
 double WellSphere::getInteractionLength()
 {
     return 2*wellWidth*radius;
+}
+
+
+
+// The main functions of this program are:
+// 1. Create a box of spheres
+// 2. Use a box of spheres to perform a Widom insertion method simulation. (WIP)
+
+// Make a list of spheres, save to file.
+void makeSphereList(){
+    // Input parameters
+    cout << "\nInput the number of spheres:\n";
+    int numSpheres;
+    cin >> numSpheres;
+    cout << "\nInput the sphere radius\n";
+    double inputRadius;
+    cin >> inputRadius;
+    cout << "\nInput the side length for the box\n";
+    double boxSize;
+    cin >> boxSize;
+
+    // Reject impossible cases
+    double mpf = (2*(inputRadius)*numSpheres)/boxSize;
+    if(mpf >= 1)
+    {
+        cout << "\nPacking fraction too high for this sort of simulation";
+        return;
+    }
+	
+	cout << "More to come soon!";
+
+    /* Create a list of pointers to spheres (currently hard spheres, could be adapted to new types)
+    vector<Sphere*> sphereList;
+    for (int sphereAdd = 0; sphereAdd < numSpheres; sphereAdd++)
+    {
+        sphereList.push_back(new Sphere(inputRadius));
+    }
+    // Call constructor with input parameters, which automatically fills box.
+    SphereBox boxOfSpheres (sphereList,boxSize,boxSize,boxSize);
+
+
+    // Make a header
+    cout << "Enter the type of sphere to create:\n";
+    // Just make a list
+
+    // Output the data to an input file
+    string str;
+    cout << "Enter a filename to write the sphere data to:\n";
+    cin >> str;
+    // Try to write to file
+    try
+    {
+        boxOfSpheres.printSpheres(str);
+        cout << "File written.\n";
+    }
+    // If that fails for whatever reason, print the box to screen.
+    catch(int e)
+    {
+        boxOfSpheres.printSpheres();
+        cout << "File write failed, output printed to screen.\n";
+    }
+	*/
+}
+//Read in spheres from a saved file
+SphereBox readBox(string fname)
+{
+	string header,data;
+	ifstream istr;
+	vector<Sphere*> sphereList;
+    //Set up a file stream
+    try
+    {
+		istr.open(fname);
+    }
+    catch(exception e)
+    {
+        cout << "\nBad file name.";
+    }
+
+    // Read in header type
+    getline(istr,header);
+    // Case statement to identify the type of sphere
+    /*switch(header)
+	{
+		case "square well":
+			break;
+		default:
+			while(getline(istr,data))
+			{
+				sphereList.push_back(new Sphere(data));
+			}
+	};
+	*/
+}
+
+//Read in a list of spheres, and then perturb them
+void metroMonteCarlo()
+{
+    // Construct a sphere box from a pre-made file
+    SphereBox box;
+    Sphere * pert;
+    Sphere * placeHold;
+    bool equilibrium;
+    string fname;
+    double oldEnergy,newEnergy,energyRatio,rfactor,pertFactor,gMax;
+
+    // Read in sphere data from file
+    cout << "\nEnter the file name where the sphere data is saved.\n";
+    cin >> fname;
+    box = readBox(fname);
+
+    // Calculate mean free path for Metropolis Monte Carlo
+    pertFactor = box.getMeanFreePath();
+
+    // Allow the box to come to equilibrium using boltzmann interaction
+    while(!equilibrium)
+    {
+        // Select a sphere from the box at random
+        pert = box.getRandomSphere();
+        // Get energy of the sphere
+        oldEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
+        // Save a copy of the sphere
+        *placeHold = *pert;
+        // Perturb the sphere
+        pert->perturb(pertFactor);
+        // Calculate the new energy
+        newEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
+        // Compare the two boltzmann factors
+        energyRatio = exp(-1*newEnergy)/exp(-1*oldEnergy);
+        // If new energy is unfavored, only keeps by random chance
+        if(energyRatio < 1)
+        {
+            //generate a low resolution random number between 0 and 1
+            rfactor = gen()/gMax;
+            // if that number is higher than the energy ratio, reject the change
+            if(rfactor > energyRatio)
+            {
+                // If failed, overwrite with old energy again
+                *pert = *placeHold;
+            }
+        }
+		// Ask the box if it's at equilibrium
+		equilibrium = box.askEquil();
+    }
+
+    // Ask if new box should be written to file
+    char input;
+    cout << "Save box to file? (Y/N)";
+    cin >> input;
+    if (input == 'y')
+    {
+        cout << "Enter File to save new data to";
+    }
+}
+
+// Read in a list of pre-made spheres, set the type of sphere, perform a simulation
+void widomPotential()
+{
+    double temp;
+    double eTot,eAvg, eTest;
+    double chemPot;
+    // Request the filename where the sphere data is written
+    string name;
+    cout << "\nEnter the name of the file where the data is saved:\n";
+    cin >> name;
+    SphereBox box;
+    box.setSphereData(name);
+    // Inquire about simulation details (i.e. number of spheres to test with)
+    int numTests;
+    cout << "\nEnter the number of spheres to test with.\n";
+    cin >> numTests;
+    // Perform simulation
+    eTot = 0;
+    for(int num = 0; num < numTests; num++)
+    {
+        eTest = box.addTestSphere(new Sphere());
+        eTot += exp(-1*eTest/temp);
+    }
+    eAvg = eTot/numTests;
+    chemPot = -temp*log(eAvg);
+    cout << "\nThe Chemical Potential of the input box is approximated to be:" << chemPot << "\n";
+
+}
+
+int main()
+{
+	gen.seed(time(NULL));
+    bool done = false;
+    while(!done)
+    {
+        cout << "\nInput a number to perform a task:\n(1):Make a box of spheres.\n(2):Perform a metropolis Monte-Carlo simulation.\n(3):Perform Widom insertion method.\n(0):Quit\n";
+        int input;
+        cin >> input;
+        switch (input)
+        {
+            case 1: makeSphereList();
+            break;
+            case 2: metroMonteCarlo();
+            break;
+            case 3: widomPotential();
+            break;
+            case 0: done = true;
+            break;
+            default: cout << "\nBad input.";
+            break;
+        }
+    }
+    return 0;
 }
