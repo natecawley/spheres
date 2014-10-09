@@ -8,43 +8,57 @@
 #include <sstream>
 #include <stdexcept>
 
-/*
-TODO:
-
-Method for determining equilibrium condition for metropolis monte carlo: energy stabilizes within some tolerance
-Method for saving sphere data for individual spheres
-Method for reading data from a string and applying it to sphere pointers
-Method for calculating energy of whole spherebox, maybe by storing energy in each individual sphere?
-Method for creating a sphere box with uniformly distributed spheres
-Fix constructor for spherebox
+/* Project Overview
+	This project runs simulations of spheres in a box.
+	
+	The spheres have some potential function associated with them, which changes with each type. 
+	The code is designed so that new sphere types can be created that overload methods in the sphere 
+	class, which allows very general code to be written and tested, without having to rewrite very much 
+	code every time that you develop a new model sphere. The way this is implemented is using pointers, 
+	which are polymorphic by nature.
+	
+	Author: Nate Cawley
 */
 
 
+/* TODO:
+	Method for determining equilibrium condition for metropolis monte carlo: energy stabilizes within some tolerance
+	Method for saving sphere data for individual spheres
+	Method for reading data from a string and applying it to sphere pointers
+	Method for calculating energy of whole spherebox, maybe by storing energy in each individual sphere?
+	Method for creating a sphere box with uniformly distributed spheres
+*/
+
+/* 	Compiler Note
+	Program uses libraries from the C++ 11 Standard Libraries
+	To access these, compile using -std=c++0x (c++14 should work, too)
+*/
 using namespace std;
 
 // Global variables of doom
 mt19937 gen;
 double gMax = gen.max();
 
-/*
-Classes:
-
-Initial:
+/* Classes defined
+Basic:
     Sphere: default sphere, is a hard sphere
     SphereBox: a class that holds spheres, a bit more structure added than just an array
-Extensions:
+Currently in development:
     WellSphere: A sphere with square well
+Future Plans
     PatchyOneSphere: A patchy (anisotropic square well) sphere that interacts with hard spheres (or really, treats any other sphere as hard) (needs a new perturb function)
     PatchyTwoSphere: A patchy sphere that only interacts with others of its type
 */
 
-// Class definition for Sphere
-// Spheres are defined with a location and radius
-// Non-Default Constructor defines radius, location.
-// They interact with other spheres via getDistance() and getPotential()
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Sphere
-{
+/* Class definition for Sphere
+	Spheres are defined with a location and radius
+	Non-Default Constructor defines radius, location.
+	They interact with other spheres via getDistance() and getPotential()
+	A lot of the other methods store data that is then overloaded 
+*/
+class Sphere{
 protected:
     double radius;
     vector<double> location;
@@ -79,56 +93,48 @@ public:
 };
 
 //Default Constructor
-Sphere::Sphere()
-{
+Sphere::Sphere(){
     // No default values
 }
 
 // Constructor for set radius
-Sphere::Sphere(double rad)
-{
+Sphere::Sphere(double rad){
     radius = rad;
 }
 
 // Constructor for preset radius and position (not to be overloaded)
-Sphere::Sphere(double rad, vector<double> newLoc)
-{
+Sphere::Sphere(double rad, vector<double> newLoc){
     radius = rad;
     location = newLoc;
 }
 
 // Constructor from string (use read data)
-Sphere::Sphere(string line)
-{
+Sphere::Sphere(string line){
 	readData(line);
 }
 
 // Set the radius of a sphere (not to be overloaded)
-void Sphere::setRadius(double rad)
-{
+void Sphere::setRadius(double rad){
     radius = rad;
 }
 
 // Return the radius of a sphere (not to be overloaded)
-double Sphere::getRadius()
-{
+double Sphere::getRadius(){
     return radius;
 }
 
-// Method for dynamic memory (not to be overloaded)
-void Sphere::setLoc(vector<double> loc)
-{
+// Method for storing location of a sphere (not to be overloaded)
+void Sphere::setLoc(vector<double> loc){
     location = loc;
 }
 
 // Return the location of a sphere (not to be overloaded)
-vector<double> Sphere::getLoc()
-{
+vector<double> Sphere::getLoc(){
     return location;
 }
 
-double Sphere::getDistance(Sphere *s, vector<double> bounds)
-{
+// Find the minimum distance between two spheres, accounting for periodic boundary.
+double Sphere::getDistance(Sphere *s, vector<double> bounds){
     vector<double> otherLoc = s->getLoc();
     double normsq = 0;
     double locDiff;
@@ -137,7 +143,7 @@ double Sphere::getDistance(Sphere *s, vector<double> bounds)
     {
         // Calculate separation difference
         locDiff = (location[i]-otherLoc[i]);
-        // If greater than bounds/2, actually closer because periodic boundary conditions.
+        // If greater than bounds/2, actually closer because of periodic boundary conditions.
         if(locDiff > bounds[i]/2)
         {
             locDiff = bounds[i]-locDiff;
@@ -151,8 +157,7 @@ double Sphere::getDistance(Sphere *s, vector<double> bounds)
 
 // Default spheres are hard spheres, meaning they can't overlap but otherwise don't interact.
 // This will get overwritten in sticky spheres, patchy spheres, etc.
-double Sphere::getPotential(Sphere* s, vector<double> bounds)
-{
+double Sphere::getPotential(Sphere* s, vector<double> bounds){
     // Calculate the minimum allowable distance between the spheres
     int minDist = radius + s->getRadius();
     // If the distance is less than allowed, set potential to infinity
@@ -165,15 +170,16 @@ double Sphere::getPotential(Sphere* s, vector<double> bounds)
         }
 }
 
-double Sphere::getInteractionLength()
-{
+/* Method to return interaction length
+	Interaction length is determined by sphere
+*/
+double Sphere::getInteractionLength(){
     //Overload this if potential acts at a longer distance
     return 2*radius;
 }
 
 // This is supposed to do something to change the location of the sphere
-void Sphere::perturb(double mag)
-{
+void Sphere::perturb(double mag){
     double u,v,phi,theta,ranJump;
     vector<double> dir;
     // pick a random amount from 0 to mag
@@ -201,8 +207,7 @@ void Sphere::perturb(double mag)
 }
 
 // Read in data and parse it into variables, then set the internal variables
-void Sphere::readData(string line)
-{
+void Sphere::readData(string line){
     double radius,xLoc,yLoc,zLoc;
     vector<double> locs;
     stringstream ss;
@@ -215,8 +220,8 @@ void Sphere::readData(string line)
     setLoc(locs);
 }
 
-string Sphere::getData()
-{
+// Return a list of numbers
+string Sphere::getData(){
     stringstream writeStr;
     string dataStream;
     vector<double> locs = getLoc();
@@ -225,15 +230,13 @@ string Sphere::getData()
     return dataStream;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
- SphereBox is a box that holds spheres...
+/* SphereBox is a box that holds spheres...
  Box is of defined size, using rectangular coordinates for now
  In rectangular box, one corner is assumed to be at the origin
 */
-
-class SphereBox
-{
+class SphereBox{
 
 /*
     sphereNum: the number of spheres in the box (set by constructor)
@@ -245,8 +248,7 @@ class SphereBox
     vector<double> bounds;
     vector<Sphere*> box;
     int numPlaced;
-/*
-    Methods:
+/*  Methods:
     fillBox: fills the box with spheres, insures no overlap
     getNearSpheres: returns all sphere within a certain distance of a given sphere
     addTestSphere: Calculate energy from adding a test sphere
@@ -267,7 +269,7 @@ public:
 
     // Physics methods
     void fillBox();
-    vector<Sphere *> getNearSpheres(Sphere*, double);
+    vector<Sphere *> getNearSpheres(Sphere*);
     double getEnergySpheres(Sphere*, vector<Sphere*>);
     double addTestSphere(Sphere * s);
 	bool askEquil();
@@ -289,14 +291,13 @@ private:
     vector<double> getRandomCoords();
 };
 
-SphereBox::SphereBox()
-{
+// Empty constructor for SphereBox
+SphereBox::SphereBox(){
     // Empty Constructor for file I/O
 
 }
 
-/*
-    Rectangular Constructor for SphereBox class
+/* Rectangular Constructor for SphereBox class
     Inputs:
         s: a vector holding pointers to spheres that do not yet have set locations, but do have set radii (all assumed to be identical)
         xMax, yMax, zMax: input rectangular bounds for the edges of the box
@@ -304,55 +305,29 @@ SphereBox::SphereBox()
         Determines if the input parameters are valid, sets private variables, determines whether or not the box can plausibly be filled with spheres
         Executes fillBox method (which defines location of spheres) if parameters are valid
 */
-SphereBox::SphereBox (vector<Sphere*> s, double xMax, double yMax, double zMax)
-{
+SphereBox::SphereBox (vector<Sphere*> s, double xMax, double yMax, double zMax){
     // Set internal values
     box = s;
     sphereNum = box.size();
     bounds[0] = xMax;
     bounds[1] = yMax;
     bounds[2] = zMax;
-
-    // Determine whether the number of requested spheres can actually fit in the box
-    Sphere * testSphere = *(box.begin());
-    double testRad = testSphere->getRadius();
-    double pacFrac = (16/3)*(atan(1))*pow(testRad,3)*sphereNum/(xMax*yMax*zMax);
-    // Condition for random close packing (underestimated to save computation)
-    if(pacFrac > .5)
-    {
-        cout << "The box cannot fit that many spheres! \n";
-    }
-    else if(pacFrac > .1)
-    {
-        cout << "This is a dense packing(pf =";
-        cout << pacFrac;
-        cout <<  "). Fill process may take a while (possibly several years for large boxes!)\n";
-        numPlaced = 0;
-        fillBox();
-    }
-    else
-    {
-        numPlaced = 0;
-        fillBox();
-    }
 }
 
-// Simple scaled random number generator for a set of coordinates
-// Uses a Mersenne twister seeded with the time stamp
-vector<double> SphereBox::getRandomCoords()
-{
+// Uses random number generator to return a set of coordinates
+vector<double> SphereBox::getRandomCoords(){
     vector<double> coords;
     coords= {((double) gen()/ gMax)*bounds[0],((double) gen()/ gMax)*bounds[1],((double) gen()/ gMax)*bounds[2]};
     return coords;
 };
 
-vector<double> SphereBox::getBounds()
-{
+// return the bounds of the box
+vector<double> SphereBox::getBounds(){
     return bounds;
 }
 
-vector<Sphere*> SphereBox::getNearSpheres(Sphere* s, double dist)
-{
+// Finds all spheres within the interaction length of a given sphere
+vector<Sphere*> SphereBox::getNearSpheres(Sphere* s){
     // Empty container to hold close spheres
     vector<Sphere*> nearSpheres;
     // New iterator to look through box for close spheres
@@ -367,7 +342,7 @@ vector<Sphere*> SphereBox::getNearSpheres(Sphere* s, double dist)
         try
         {
             cToCDistance = (*s).getDistance(holder,getBounds());
-            if(cToCDistance < dist)
+            if(cToCDistance < (*s).getInteractionLength())
             {
                 nearSpheres.push_back(holder);
             }
@@ -381,8 +356,7 @@ vector<Sphere*> SphereBox::getNearSpheres(Sphere* s, double dist)
 }
 
 // Calculates the energy of one sphere due to a set of other spheres.
-double SphereBox::getEnergySpheres(Sphere* s, vector<Sphere*> nears)
-{
+double SphereBox::getEnergySpheres(Sphere* s, vector<Sphere*> nears){
     double ener;
     int nsize;
     Sphere* nSphere;
@@ -397,8 +371,7 @@ double SphereBox::getEnergySpheres(Sphere* s, vector<Sphere*> nears)
 }
 
 // Calculate the mean free path for perturbations
-double SphereBox::getMeanFreePath()
-{
+double SphereBox::getMeanFreePath(){
     //mean free path is (number density)*(scattering cross section)
     double numDens =sphereNum/(bounds[0]*bounds[1]*bounds[2]);
     double rad = (getRandomSphere())->getRadius();
@@ -406,21 +379,19 @@ double SphereBox::getMeanFreePath()
 }
 
 // Determine if sphere box is at equilibrium
-bool SphereBox::askEquil()
-{
+bool SphereBox::askEquil(){
 	return 0;
 }
 
-
-Sphere* SphereBox::getRandomSphere()
-{
+// Return a random sphere
+Sphere* SphereBox::getRandomSphere(){
     int randFactor;
     randFactor = (int) ((double) gen()/ gen.max())*sphereNum;
     return box[randFactor];
 }
 
-void SphereBox::fillBox()
-{
+// Fill a box with randomly placed spheres, currently archaic, but might be worth saving
+void SphereBox::fillBox(){
     bool spherePlaced;
     Sphere * place;
     Sphere * trialSphere;
@@ -445,7 +416,7 @@ void SphereBox::fillBox()
             trialSphere->setLoc(testCoords);
             double op = (trialSphere->getLoc())[0];
             // See if there is an overlap, if not, accept new location
-            overSpheres = getNearSpheres(trialSphere, 2*rad);
+            overSpheres = getNearSpheres(trialSphere);
             int overSize = 0;
             overSize = (int) overSpheres.size();
             if(overSize == 0)
@@ -464,24 +435,21 @@ void SphereBox::fillBox()
     }
 }
 
-// Calculate the energy of adding a test sphere
-double SphereBox::addTestSphere(Sphere* s)
-{
+// Calculate the energy of adding a test sphere (for Widom insertion method)
+double SphereBox::addTestSphere(Sphere* s){
     //initialize energy
     double energy;
     int nsize;
     Sphere* nSphere;
     // Set the test sphere to a random location
     s->setLoc(getRandomCoords());
-    double scanLength = s->getInteractionLength();
-    vector<Sphere*> nears = getNearSpheres(s,scanLength);
+    vector<Sphere*> nears = getNearSpheres(s);
     energy = getEnergySpheres(s,nears);
     return energy;
 }
 
-// Prints out the spheres and their respective locations
-void SphereBox::printSpheres()
-{
+// Prints out the sphere data to the screen
+void SphereBox::printSpheres(){
     cout << "\nSphere Number   radius  x   y   z \n";
     Sphere * printr;
     for(int i = 0; i < numPlaced; i++)
@@ -492,9 +460,8 @@ void SphereBox::printSpheres()
 
 }
 
-// Print spheres to a file
-void SphereBox::printSpheres(string name)
-{
+// Print sphere data to a file
+void SphereBox::printSpheres(string name){
     ofstream wfile;
     wfile.open(name);
     wfile << "Bounds" << bounds[0] << bounds[1] << bounds[2];
@@ -508,9 +475,8 @@ void SphereBox::printSpheres(string name)
 
 }
 
-//Read spheres in from a file
-void SphereBox::setSphereData(string fname)
-{
+//Read sphere data in from a file
+void SphereBox::setSphereData(string fname){
     const int headerNum = 4;
      // Load the file name
     ifstream filename(fname);
@@ -532,7 +498,7 @@ void SphereBox::setSphereData(string fname)
             }
             else
             {
-                // Switch-case statement with  header types
+                // Switch-case statement with header types
                 sphereType = 4;
 
             }
@@ -545,13 +511,13 @@ void SphereBox::setSphereData(string fname)
     }
 }
 
-/*
-    Class WellSphere defines a sphere with a square well interaction
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/* Class WellSphere 
+	defines a sphere with a square well interaction
     Extension of class Sphere
 */
-
-class WellSphere : public Sphere
-{
+class WellSphere : public Sphere{
     double wellDepth;
     double wellWidth;
 public:
@@ -570,35 +536,34 @@ public:
 };
 
 // The default square well sphere is a hard sphere
-WellSphere::WellSphere()
-{
+WellSphere::WellSphere(){
     wellWidth = 1;
     wellDepth = 0;
 }
 
-WellSphere::WellSphere(double depth, double width)
-{
+// Constructor that defines well depth and well width
+WellSphere::WellSphere(double depth, double width){
     wellDepth = depth;
     wellWidth = width;
 }
 
-WellSphere::WellSphere(double depth, double width, double rad)
-{
+// Constructor that defines well depth and well width and also radius
+WellSphere::WellSphere(double depth, double width, double rad){
     wellDepth = depth;
     wellWidth = width;
     radius = rad;
 }
 
-WellSphere::WellSphere(double depth, double width, double rad, vector<double> loc)
-{
+// Constructor that defines well depth and well width and also radius and even location!
+WellSphere::WellSphere(double depth, double width, double rad, vector<double> loc){
     wellDepth = depth;
     wellWidth = width;
     radius = rad;
     location = loc;
 }
 
-double WellSphere::getPotential(Sphere* s, vector<double> bounds)
-{
+// Overloaded potential function
+double WellSphere::getPotential(Sphere* s, vector<double> bounds){
     double minDist;
     double dist;
     // Calculate the minimum allowable distance between the spheres
@@ -619,16 +584,18 @@ double WellSphere::getPotential(Sphere* s, vector<double> bounds)
     }
 }
 
-double WellSphere::getInteractionLength()
-{
+// Overloaded interaction length
+double WellSphere::getInteractionLength(){
     return 2*wellWidth*radius;
 }
 
+/*////////////////////////////////////////////MAIN FUNCTIONS/////////////////////////////////////////////////
 
-
-// The main functions of this program are:
-// 1. Create a box of spheres
-// 2. Use a box of spheres to perform a Widom insertion method simulation. (WIP)
+	1. Create a box of spheres of some defined type
+	2. Use a Metropolis Markov Chain Monte Carlo simulation to calculate the partition function
+	3. Use a Widom insertion method simulation to calculate the chemical potential
+	
+*////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Make a list of spheres, save to file.
 void makeSphereList(){
@@ -685,41 +652,9 @@ void makeSphereList(){
     }
 	*/
 }
-//Read in spheres from a saved file
-SphereBox readBox(string fname)
-{
-	string header,data;
-	ifstream istr;
-	vector<Sphere*> sphereList;
-    //Set up a file stream
-    try
-    {
-		istr.open(fname);
-    }
-    catch(exception e)
-    {
-        cout << "\nBad file name.";
-    }
-
-    // Read in header type
-    getline(istr,header);
-    // Case statement to identify the type of sphere
-    /*switch(header)
-	{
-		case "square well":
-			break;
-		default:
-			while(getline(istr,data))
-			{
-				sphereList.push_back(new Sphere(data));
-			}
-	};
-	*/
-}
 
 //Read in a list of spheres, and then perturb them
-void metroMonteCarlo()
-{
+void metroMonteCarlo(){
     // Construct a sphere box from a pre-made file
     SphereBox box;
     Sphere * pert;
@@ -731,24 +666,23 @@ void metroMonteCarlo()
     // Read in sphere data from file
     cout << "\nEnter the file name where the sphere data is saved.\n";
     cin >> fname;
-    box = readBox(fname);
+    box.setSphereData(fname);
 
     // Calculate mean free path for Metropolis Monte Carlo
     pertFactor = box.getMeanFreePath();
 
     // Allow the box to come to equilibrium using boltzmann interaction
-    while(!equilibrium)
-    {
+    while(!equilibrium){
         // Select a sphere from the box at random
         pert = box.getRandomSphere();
         // Get energy of the sphere
-        oldEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
+        oldEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert));
         // Save a copy of the sphere
         *placeHold = *pert;
         // Perturb the sphere
         pert->perturb(pertFactor);
         // Calculate the new energy
-        newEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert,pert->getInteractionLength()));
+        newEnergy = box.getEnergySpheres(pert, box.getNearSpheres(pert));
         // Compare the two boltzmann factors
         energyRatio = exp(-1*newEnergy)/exp(-1*oldEnergy);
         // If new energy is unfavored, only keeps by random chance
@@ -778,8 +712,7 @@ void metroMonteCarlo()
 }
 
 // Read in a list of pre-made spheres, set the type of sphere, perform a simulation
-void widomPotential()
-{
+void widomPotential(){
     double temp;
     double eTot,eAvg, eTest;
     double chemPot;
@@ -806,8 +739,8 @@ void widomPotential()
 
 }
 
-int main()
-{
+// Main
+int main(){
 	gen.seed(time(NULL));
     bool done = false;
     while(!done)
