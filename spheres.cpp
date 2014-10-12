@@ -8,6 +8,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#define PI 3.1415926535897932384626433832795028841971693993751058209749445923078164062
+
 /* Project Overview
 	This project runs simulations of spheres in a box.
 	
@@ -36,7 +38,7 @@
 using namespace std;
 
 // Global variables of doom
-mt19937 gen;
+mt19937_64 gen;
 double gMax = gen.max();
 
 /* Classes defined
@@ -62,6 +64,7 @@ class Sphere{
 protected:
     double radius;
     vector<double> location;
+	const static int sphereType = 1;
     /*
     Methods defined for sphere:
         getRadius: returns radius
@@ -86,6 +89,8 @@ public:
     vector<double> getLoc();
     void readData(string);
     string getData();
+	string getHeader();
+	const static int getType();
     double getDistance(Sphere*,vector<double> bounds);
     double getPotential(Sphere*,vector<double> bounds);
     double getInteractionLength();
@@ -199,11 +204,9 @@ void Sphere::perturb(double mag){
 
 
     // move a random amount from 0 to mag in length
-
-
-
-
-
+	location[1]+=dir[1];
+	location[2]+=dir[2];
+	location[3]+=dir[3];
 }
 
 // Read in data and parse it into variables, then set the internal variables
@@ -220,12 +223,27 @@ void Sphere::readData(string line){
     setLoc(locs);
 }
 
-// Return a list of numbers
+// Return data as a list of numbers
 string Sphere::getData(){
     stringstream writeStr;
     string dataStream;
     vector<double> locs = getLoc();
-    writeStr << getRadius() << "    " << locs[0] << "    " << locs[1] << "    " << locs[2];
+    writeStr << "	" << getRadius() << "	" << locs[0] << "	" << locs[1] << "	" << locs[2];
+    dataStream = writeStr.str();
+    return dataStream;
+}
+
+// Return the type of the sphere
+const int Sphere::getType()
+{
+	return sphereType;
+}
+
+// Return the header for this type of sphere
+string Sphere::getHeader(){
+    stringstream writeStr;
+    string dataStream;
+    writeStr << "SphereType: Hard Sphere";
     writeStr >> dataStream;
     return dataStream;
 }
@@ -307,11 +325,16 @@ SphereBox::SphereBox(){
 */
 SphereBox::SphereBox (vector<Sphere*> s, double xMax, double yMax, double zMax){
     // Set internal values
+	cout << "\nsetting internals\n";
     box = s;
+	cout << "counting spheres\n";
     sphereNum = box.size();
+	cout << "size = " << sphereNum;
+	bounds = vector<double>(3,0);
     bounds[0] = xMax;
     bounds[1] = yMax;
     bounds[2] = zMax;
+	cout << "\nconstructor ended";
 }
 
 // Uses random number generator to return a set of coordinates
@@ -452,7 +475,7 @@ double SphereBox::addTestSphere(Sphere* s){
 void SphereBox::printSpheres(){
     cout << "\nSphere Number   radius  x   y   z \n";
     Sphere * printr;
-    for(int i = 0; i < numPlaced; i++)
+    for(int i = 0; i < sphereNum; i++)
     {
         printr = box[i];
         cout << i+1 << "  " << printr->getRadius() << "    " << printr->getLoc()[0] << "    " << printr->getLoc()[1] << "    " << printr->getLoc()[2] <<"\n";
@@ -463,14 +486,21 @@ void SphereBox::printSpheres(){
 // Print sphere data to a file
 void SphereBox::printSpheres(string name){
     ofstream wfile;
+	int numType;
+	Sphere * first;
+	first = box[0];
     wfile.open(name);
-    wfile << "Bounds" << bounds[0] << bounds[1] << bounds[2];
-    wfile << "Sphere Number   radius  x   y   z \n";
+	// Make the header
+    wfile << "Bounds" << bounds[0] << bounds[1] << bounds[2] << "\n";
+    wfile << (*first).getHeader()<< "\n";
+	numType = (*first).getType();
+	wfile << numType << "\n";
+	// Print the spheres
     Sphere * printr;
-    for(int i = 0; i < numPlaced; i++)
+    for(int i = 0; i < sphereNum; i++)
     {
         printr = box[i];
-        wfile << i+1 << "  " << printr->getRadius() << "    " << printr->getLoc()[0] << "    " << printr->getLoc()[1] << "    " << printr->getLoc()[2] <<"\n";
+        wfile << i+1 << (printr->getData()) <<"\n";
     }
 
 }
@@ -518,8 +548,10 @@ void SphereBox::setSphereData(string fname){
     Extension of class Sphere
 */
 class WellSphere : public Sphere{
+protected:
     double wellDepth;
     double wellWidth;
+	const static int sphereType = 2;
 public:
     // Default constructor
     WellSphere();
@@ -535,7 +567,9 @@ public:
     double getInteractionLength();
 };
 
-// The default square well sphere is a hard sphere
+/* The default square well sphere is a hard sphere.
+	This will be used for testing purposes.
+*/
 WellSphere::WellSphere(){
     wellWidth = 1;
     wellDepth = 0;
@@ -609,30 +643,101 @@ void makeSphereList(){
     cout << "\nInput the side length for the box\n";
     double boxSize;
     cin >> boxSize;
+	
+	// Calculate grid spacing
+	int sStep;
+	double kStep;
+	double shiftVal;
+	sStep = ceil(cbrt((double) numSpheres));
+	kStep = boxSize / ((double) sStep + 1);
+	shiftVal = ((double) sStep+.5) * kStep;
 
     // Reject impossible cases
-    double mpf = (2*(inputRadius)*numSpheres)/boxSize;
+    double mpf = pow((2*(inputRadius) / boxSize),3)*numSpheres;
     if(mpf >= 1)
     {
         cout << "\nPacking fraction too high for this sort of simulation";
         return;
     }
 	
-	cout << "More to come soon!";
+	// Calculate actual packing fraction
+	double pf = (4 * PI * pow(inputRadius/boxSize,3) / 3);
+	cout << "Creating box with packing fraction =" << pf << "\n";
 
-    /* Create a list of pointers to spheres (currently hard spheres, could be adapted to new types)
-    vector<Sphere*> sphereList;
-    for (int sphereAdd = 0; sphereAdd < numSpheres; sphereAdd++)
-    {
-        sphereList.push_back(new Sphere(inputRadius));
-    }
+	// Make a header
+	int inputType;
+    cout << "Enter the type of sphere to create:\n1. Hard Sphere\n2. Square Well\n";
+    cin >> inputType;
+	
+	//Do a different thing based on the type of sphere used
+	Sphere* s;
+	vector<Sphere*> sphereList;
+	vector<double> locScanner (3, kStep);
+	switch (inputType){
+		// hard sphere
+		case 1: 
+		// do the loop thing
+		for (int sphereAdd = 0; sphereAdd < numSpheres; sphereAdd++){
+			// Make a new sphere with the input radius and location based on locScanner
+			s = new Sphere(inputRadius, locScanner);
+			sphereList.push_back(s);
+			
+			// Increment locScanner
+			locScanner[0] += kStep;
+			
+			// If overflow, move to a new row
+			if(locScanner[0] > shiftVal){
+				locScanner[0] = kStep;
+				locScanner[1] += kStep;
+				// If overflow, move to a new slice
+				if(locScanner[1] > shiftVal){
+					locScanner[1] = kStep;
+					locScanner[2] += kStep;
+				}
+			}
+			cout << "iteration " << sphereAdd+1 << " completed\n";
+		}
+		break;
+		
+		// square well
+		case 2:
+		// prompt width and depth
+		double width, depth;
+		width = 1;
+		depth = 0;
+		cout << "Enter width and depth:";
+		for (int sphereAdd = 0; sphereAdd < numSpheres; sphereAdd++){
+			// Make a new sphere with the input radius and location based on locScanner
+			s = new WellSphere(width, depth, inputRadius, locScanner);
+			sphereList.push_back(s);
+			// Increment locScanner
+			locScanner[1] += kStep;
+			// If overflow, move to a new row
+			if(locScanner[1] > shiftVal){
+				locScanner[1] = kStep;
+				locScanner[2] += kStep;
+				// If overflow, move to a new slice
+				if(locScanner[2] > shiftVal){
+					locScanner[2] = kStep;
+					locScanner[3] += kStep;
+				}
+			}
+		}
+		// do the loop thing
+		break;
+		
+		default:
+		cout << "Bad input type";
+		break;
+	}
+	
+	cout << "Calling constructor";
+
     // Call constructor with input parameters, which automatically fills box.
     SphereBox boxOfSpheres (sphereList,boxSize,boxSize,boxSize);
-
-
-    // Make a header
-    cout << "Enter the type of sphere to create:\n";
-    // Just make a list
+	
+	cout << "printing spheres";
+	//boxOfSpheres.printSpheres();
 
     // Output the data to an input file
     string str;
@@ -643,14 +748,13 @@ void makeSphereList(){
     {
         boxOfSpheres.printSpheres(str);
         cout << "File written.\n";
-    }
-    // If that fails for whatever reason, print the box to screen.
+    } // If that fails for whatever reason, print the box to screen.
     catch(int e)
     {
         boxOfSpheres.printSpheres();
         cout << "File write failed, output printed to screen.\n";
     }
-	*/
+	//
 }
 
 //Read in a list of spheres, and then perturb them
